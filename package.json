@@ -1,0 +1,18 @@
+{
+  "name": "hbd-sql",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "kios003",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "tsc && node dist/index.js"
+  },
+  "keywords": [],
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@types/mssql": "^9.1.5",
+    "mssql": "^11.0.1",
+    "typescript": "^5.7.2"
+  }
+}
