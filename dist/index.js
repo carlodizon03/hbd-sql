@@ -80,7 +80,7 @@ class HBDRepo {
         AND [type] = 'transfer_to_savings'
       ORDER BY [timestamp] ASC;
     `;
-        return this.query(queryString, [username]);
+        return await this.query(queryString, [username]);
     }
     /**
      * Calculates the total amount deposited to HBD savings for a specific user.
