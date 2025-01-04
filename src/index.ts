@@ -121,6 +121,23 @@ export class HBDRepo {
     return result[0]?.total_amount || 0;
   }
 
+    /**
+   * Calculates the total amount withdrawn from HBD savings for a specific user.
+   * @param username - The username of the account.
+   * @returns A Promise resolving to the total withdrawn amount.
+   */
+  async totalWithdrawal(username: string): Promise<number> {
+    const queryString = `
+      SELECT SUM([amount]) AS total_amount
+      FROM VOFillTransferFromSavings 
+      where ([from] = @param1 or  [to]=@param1 ) 
+    `;
+    const result = await this.query<{ total_amount: number }>(queryString, [
+      username,
+    ]);
+    return result[0]?.total_amount || 0;
+  }
+
   /**
    * Calculates the total interest accrued for a user's HBD savings.
    * @param username - The username of the account.

@@ -48,6 +48,12 @@ export declare class HBDRepo {
      */
     totalDeposit(username: string): Promise<number>;
     /**
+   * Calculates the total amount withdrawn from HBD savings for a specific user.
+   * @param username - The username of the account.
+   * @returns A Promise resolving to the total withdrawn amount.
+   */
+    totalWithdrawal(username: string): Promise<number>;
+    /**
      * Calculates the total interest accrued for a user's HBD savings.
      * @param username - The username of the account.
      * @returns A Promise resolving to the total accrued interest.
