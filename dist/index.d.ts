@@ -42,6 +42,12 @@ export declare class HBDRepo {
      */
     deposits(username: string): Promise<any[]>;
     /**
+    * Retrieves all HBD savings withdrawal transactions for a specific user.
+    * @param username - The username of the account.
+    * @returns A Promise resolving to an array of withdrawal transactions.
+    */
+    withrawals(username: string): Promise<any[]>;
+    /**
      * Calculates the total amount deposited to HBD savings for a specific user.
      * @param username - The username of the account.
      * @returns A Promise resolving to the total deposit amount.

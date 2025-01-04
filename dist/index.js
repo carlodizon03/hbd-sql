@@ -98,7 +98,22 @@ class HBDRepo {
       FROM TxTransfers
       WHERE ([from] = @param1 OR [to] = @param1) 
         AND [type] = 'transfer_to_savings'
+        AND [amount_symbol] = 'HBD'
       ORDER BY [timestamp] ASC;
+    `;
+        return await this.query(queryString, [username]);
+    }
+    /**
+    * Retrieves all HBD savings withdrawal transactions for a specific user.
+    * @param username - The username of the account.
+    * @returns A Promise resolving to an array of withdrawal transactions.
+    */
+    async withrawals(username) {
+        const queryString = `
+      SELECT * FROM VOFillTransferFromSavings 
+      where ([from]=@param1 or [to]=@param1)
+        AND [amount_symbol] = 'HBD'
+	    ORDER BY [timestamp] ASC;
     `;
         return await this.query(queryString, [username]);
     }
@@ -112,7 +127,8 @@ class HBDRepo {
       SELECT SUM([amount]) AS total_amount
       FROM TxTransfers
       WHERE ([from] = @param1 OR [to] = @param1)
-        AND [type] = 'transfer_to_savings';
+        AND [type] = 'transfer_to_savings'
+        AND [amount_symbol] = 'HBD';
     `;
         const result = await this.query(queryString, [
             username,
@@ -128,7 +144,8 @@ class HBDRepo {
         const queryString = `
       SELECT SUM([amount]) AS total_amount
       FROM VOFillTransferFromSavings 
-      where ([from] = @param1 or  [to]=@param1 ) 
+      where ([from] = @param1 or  [to]=@param1)
+        AND [amount_symbol] = 'HBD';
     `;
         const result = await this.query(queryString, [
             username,
