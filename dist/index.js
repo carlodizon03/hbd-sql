@@ -10,40 +10,29 @@ const mssql_1 = __importDefault(require("mssql"));
  * to manage HBD savings-related queries and operations.
  */
 class HBDRepo {
-    static instance;
-    pool;
+    static instance = null;
+    pool = null;
     sqlConfig;
     /**
      * Private constructor to ensure only one instance of the repository is created.
      * @param sqlConfig - The SQL configuration object.
      */
     constructor(sqlConfig) {
+        if (!sqlConfig) {
+            throw new Error('SQL configuration is required to initialize Database.');
+        }
         this.sqlConfig = sqlConfig;
     }
     /**
-     * Retrieves the singleton instance of HBDRepo. If it doesn't exist, initializes it.
-     * @param sqlConfig - The SQL configuration object.
-     * @returns A Promise resolving to the singleton instance of HBDRepo.
+     * Get the singleton instance of the repository.
+     * @param sqlConfig - The SQL configuration object (only used for initialization).
+     * @returns The singleton instance of the repository.
      */
-    static async getInstance(sqlConfig) {
+    static getInstance(sqlConfig) {
         if (!HBDRepo.instance) {
             HBDRepo.instance = new HBDRepo(sqlConfig);
-            await HBDRepo.instance.initializePool();
         }
         return HBDRepo.instance;
-    }
-    /**
-     * Initializes the connection pool for database interactions.
-     * @throws An error if the connection pool fails to initialize.
-     */
-    async initializePool() {
-        try {
-            this.pool = await mssql_1.default.connect(this.sqlConfig);
-        }
-        catch (error) {
-            console.error('Failed to initialize connection pool:', error);
-            throw new Error('Database connection failed.');
-        }
     }
     /**
      * Executes a query against the database.
@@ -52,20 +41,51 @@ class HBDRepo {
      * @returns A Promise resolving to an array of records from the query.
      */
     async query(queryString, params) {
+        if (!this.pool) {
+            await this.connect();
+        }
         try {
-            const request = this.pool.request();
+            const request = this.pool.request(); // Use non-null assertion since `this.pool` is ensured to exist.
             if (params) {
                 params.forEach((param, index) => {
                     request.input(`param${index + 1}`, param);
                 });
             }
             const result = await request.query(queryString);
-            return result.recordset; // Return the recordset directly
+            return result.recordset;
         }
         catch (error) {
             console.error('Query execution failed:', error);
             throw new Error('Failed to execute query.');
         }
+    }
+    /**
+     * Connect to the database.
+     * @returns A Promise resolving to the connection pool.
+     */
+    async connect() {
+        if (!this.pool) {
+            try {
+                const connectionPool = new mssql_1.default.ConnectionPool(this.sqlConfig);
+                this.pool = await connectionPool.connect();
+                console.log('Database connected');
+            }
+            catch (err) {
+                console.error('Database connection error:', err);
+                throw err;
+            }
+        }
+        return this.pool;
+    }
+    /**
+     * Get the database connection pool.
+     * @returns The connection pool.
+     */
+    async getConnection() {
+        if (!this.pool) {
+            await this.connect();
+        }
+        return this.pool;
     }
     /**
      * Retrieves all HBD savings deposit transactions for a specific user.

@@ -5,8 +5,8 @@ import sql, { ConnectionPool, config as SqlConfig } from 'mssql';
  * to manage HBD savings-related queries and operations.
  */
 export class HBDRepo {
-  private static instance: HBDRepo;
-  private pool: ConnectionPool;
+  private static instance: HBDRepo | null = null;
+  private pool: ConnectionPool | null = null;
   private sqlConfig: SqlConfig;
 
   /**
@@ -14,33 +14,21 @@ export class HBDRepo {
    * @param sqlConfig - The SQL configuration object.
    */
   private constructor(sqlConfig: SqlConfig) {
+    if (!sqlConfig) {
+      throw new Error('SQL configuration is required to initialize Database.');
+    }
     this.sqlConfig = sqlConfig;
   }
-
   /**
-   * Retrieves the singleton instance of HBDRepo. If it doesn't exist, initializes it.
-   * @param sqlConfig - The SQL configuration object.
-   * @returns A Promise resolving to the singleton instance of HBDRepo.
+   * Get the singleton instance of the repository.
+   * @param sqlConfig - The SQL configuration object (only used for initialization).
+   * @returns The singleton instance of the repository.
    */
-  static async getInstance(sqlConfig: SqlConfig): Promise<HBDRepo> {
+  public static getInstance(sqlConfig: SqlConfig): HBDRepo {
     if (!HBDRepo.instance) {
       HBDRepo.instance = new HBDRepo(sqlConfig);
-      await HBDRepo.instance.initializePool();
     }
     return HBDRepo.instance;
-  }
-
-  /**
-   * Initializes the connection pool for database interactions.
-   * @throws An error if the connection pool fails to initialize.
-   */
-  private async initializePool(): Promise<void> {
-    try {
-      this.pool = await sql.connect(this.sqlConfig);
-    } catch (error) {
-      console.error('Failed to initialize connection pool:', error);
-      throw new Error('Database connection failed.');
-    }
   }
 
   /**
@@ -49,28 +37,56 @@ export class HBDRepo {
    * @param params - An optional array of parameters to pass to the query.
    * @returns A Promise resolving to an array of records from the query.
    */
-  private async query<T extends Record<string, any>>(
+  public async query<T extends Record<string, any>>(
     queryString: string,
     params?: any[]
   ): Promise<T[]> {
-    if (!this.pool && !this.pool.connected) {
-    throw new Error('Database connection is not initialized.');
-  }
+    if (!this.pool) {
+      await this.connect();
+    }
     try {
-      const request = this.pool.request();
+      const request = this.pool!.request(); // Use non-null assertion since `this.pool` is ensured to exist.
       if (params) {
         params.forEach((param, index) => {
           request.input(`param${index + 1}`, param);
         });
       }
       const result = await request.query<T>(queryString);
-      return result.recordset; // Return the recordset directly
+      return result.recordset;
     } catch (error) {
       console.error('Query execution failed:', error);
       throw new Error('Failed to execute query.');
     }
   }
+  /**
+   * Connect to the database.
+   * @returns A Promise resolving to the connection pool.
+   */
+  private async connect() {
+    if (!this.pool) {
+      try {
+        const connectionPool = new sql.ConnectionPool(this.sqlConfig);
+        this.pool = await connectionPool.connect();
+        console.log('Database connected');
+      } catch (err) {
+        console.error('Database connection error:', err);
+        throw err;
+      }
+    }
+    return this.pool;
+  }
 
+  /**
+   * Get the database connection pool.
+   * @returns The connection pool.
+   */
+  public async getConnection(): Promise<ConnectionPool> {
+    if (!this.pool) {
+      await this.connect();
+    }
+    return this.pool!;
+  }
+  
   /**
    * Retrieves all HBD savings deposit transactions for a specific user.
    * @param username - The username of the account.

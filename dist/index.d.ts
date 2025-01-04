@@ -1,4 +1,4 @@
-import { config as SqlConfig } from 'mssql';
+import { ConnectionPool, config as SqlConfig } from 'mssql';
 /**
  * HBDRepo is a singleton class responsible for interacting with the database
  * to manage HBD savings-related queries and operations.
@@ -13,23 +13,28 @@ export declare class HBDRepo {
      */
     private constructor();
     /**
-     * Retrieves the singleton instance of HBDRepo. If it doesn't exist, initializes it.
-     * @param sqlConfig - The SQL configuration object.
-     * @returns A Promise resolving to the singleton instance of HBDRepo.
+     * Get the singleton instance of the repository.
+     * @param sqlConfig - The SQL configuration object (only used for initialization).
+     * @returns The singleton instance of the repository.
      */
-    static getInstance(sqlConfig: SqlConfig): Promise<HBDRepo>;
-    /**
-     * Initializes the connection pool for database interactions.
-     * @throws An error if the connection pool fails to initialize.
-     */
-    private initializePool;
+    static getInstance(sqlConfig: SqlConfig): HBDRepo;
     /**
      * Executes a query against the database.
      * @param queryString - The SQL query string.
      * @param params - An optional array of parameters to pass to the query.
      * @returns A Promise resolving to an array of records from the query.
      */
-    private query;
+    query<T extends Record<string, any>>(queryString: string, params?: any[]): Promise<T[]>;
+    /**
+     * Connect to the database.
+     * @returns A Promise resolving to the connection pool.
+     */
+    private connect;
+    /**
+     * Get the database connection pool.
+     * @returns The connection pool.
+     */
+    getConnection(): Promise<ConnectionPool>;
     /**
      * Retrieves all HBD savings deposit transactions for a specific user.
      * @param username - The username of the account.
