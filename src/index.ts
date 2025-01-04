@@ -53,7 +53,7 @@ export class HBDRepo {
     queryString: string,
     params?: any[]
   ): Promise<T[]> {
-    if (!this.pool || !this.pool.connected) {
+    if (!this.pool && !this.pool.connected) {
     throw new Error('Database connection is not initialized.');
   }
     try {
