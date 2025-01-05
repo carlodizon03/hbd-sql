@@ -90,7 +90,7 @@ class HBDRepo {
         const queryString = `
          SELECT * , hafsql.get_timestamp(id) AS timestamp
           FROM hafsql.operation_fill_transfer_from_savings_table
-          WHERE from_account = 'krios003'
+          WHERE from_account = $1
           AND symbol = 'HBD' ORDER BY timestamp ASC;
 
     `;
@@ -170,7 +170,7 @@ class HBDRepo {
             last_payment AS (
                 SELECT hafsql.get_timestamp(id) AS last_payment_timestamp
                 FROM hafsql.operation_interest_table 
-                WHERE owner = 'krios003' 
+                WHERE owner = $1 
                 ORDER BY last_payment_timestamp DESC 
                 LIMIT 1
             ),
@@ -202,10 +202,9 @@ class HBDRepo {
     async interestPayments(username) {
         const queryString = `
       SELECT *, hafsql.get_timestamp(id) AS timestamp FROM hafsql.operation_interest_table
-      where owner =  $1;
+      where owner = $1;
     `;
-        const result = await this.query(queryString, [username]);
-        return result[0] || {};
+        return await this.query(queryString, [username]);
     }
 }
 exports.HBDRepo = HBDRepo;
