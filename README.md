@@ -1,6 +1,12 @@
 # HBDRepo
 
-`HBDRepo` is a singleton class designed for interacting with [HiveSQL](https://hivesql.io/) to manage HBD (Hive Backed Dollars) savings-related operations. It uses [node-mssql](https://github.com/tediousjs/node-mssql) library to query the database and retrieve information such as deposits, total interest, savings details, and more.
+`HBDRepo` is a singleton class designed for interacting with [HafSQL](https://mahdiyari.gitlab.io/hafsql/) to manage HBD (Hive Backed Dollars) savings-related operations. It uses [node-postgres](https://node-postgres.com/) library to query the database and retrieve information such as deposits, total interest, savings details, and more.
+
+## Dependency
+
+```
+npm i pg
+```
 
 ## Features
 
@@ -11,45 +17,54 @@
 ## Example
 
 ```
-import { config as SqlConfig } from 'mssql';
-import { HBDRepo } from './HBDRepo';
+import { PoolConfig } from 'pg';
+import { HBDRepo } from 'hbd-sql/dist';
 
-const sqlConfig: SqlConfig = {
-  user: 'your-db-username',
-  password: 'your-db-password',
-  server: 'your-db-server',
-  database: 'your-database',
-  options: {
-    encrypt: true,
-    trustServerCertificate: true,
-  },
+const poolConfig: PoolConfig = {
+  user: `hafsql_public`,
+  host: `hafsql-sql.mahdiyari.info`,
+  database: `haf_block_log`,
+  password: `hafsql_public`,
+  port: 5432, 
 };
 
 async function main() {
   try {
     // Get the singleton instance of HBDRepo
-    const repo = await HBDRepo.getInstance(sqlConfig);
+    const repo = HBDRepo.getInstance(poolConfig);
 
-    // Example: Retrieve deposits for a user
-    const username = 'example_user';
-    const deposits = await repo.deposits(username);
-    console.log('User Deposits:', deposits);
+   console.log('Deposits');
+    const deposits = await repo.deposits('your-username');
+    console.log('Deposits:', deposits);
 
-    // Example: Retrieve total deposits for a user
-    const totalDeposit = await repo.totalDeposit(username);
-    console.log('Total Deposits:', totalDeposit);
+    console.log('Withdrawals');
+    const withdrawals = await repo.withdrawals('your-username');
+    console.log('Withdrawals:', withdrawals);
 
-    // Example: Retrieve total interest for a user
-    const totalInterest = await repo.totalInterest(username);
+    console.log('Total Deposit');
+    const totalDeposit = await repo.totalDeposit('your-username');
+      console.log('Total Deposit:', totalDeposit);
+
+    console.log('Total Withdrawals');
+    const totalWithdrawal = await repo.totalWithdrawal('your-username');
+    console.log('Total Withdrawal:', totalWithdrawal);
+
+    console.log('Total Interest');
+    const totalInterest = await repo.totalInterest('your-username');
     console.log('Total Interest:', totalInterest);
 
-    // Example: Retrieve current interest rate
+    console.log('Interest Rate');
     const interestRate = await repo.interestRate();
-    console.log('Interest Rate:', interestRate);
+    console.log('Interest Rate:', interestRate ? 'success' : 'failed');
 
-    // Example: Retrieve savings details for a user
-    const savingsDetails = await repo.savingsDetails(username);
+    console.log('Savings Details');
+    const savingsDetails = await repo.savingsDetails('your-username');
     console.log('Savings Details:', savingsDetails);
+
+    console.log('Interest Payments');
+    const interestPayments = await repo.interestPayments('your-username');
+    console.log({ interestPayments });
+
   } catch (error) {
     console.error('An error occurred:', error);
   }
