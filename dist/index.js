@@ -1,10 +1,7 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.HBDRepo = void 0;
-const mssql_1 = __importDefault(require("mssql"));
+const pg_1 = require("pg");
 /**
  * HBDRepo is a singleton class responsible for interacting with the database
  * to manage HBD savings-related queries and operations.
@@ -12,25 +9,25 @@ const mssql_1 = __importDefault(require("mssql"));
 class HBDRepo {
     static instance = null;
     pool = null;
-    sqlConfig;
+    poolConfig;
     /**
      * Private constructor to ensure only one instance of the repository is created.
-     * @param sqlConfig - The SQL configuration object.
+     * @param poolConfig - The PostgreSQL pool configuration object.
      */
-    constructor(sqlConfig) {
-        if (!sqlConfig) {
-            throw new Error('SQL configuration is required to initialize Database.');
+    constructor(poolConfig) {
+        if (!poolConfig) {
+            throw new Error('PostgreSQL configuration is required to initialize Database.');
         }
-        this.sqlConfig = sqlConfig;
+        this.poolConfig = poolConfig;
     }
     /**
      * Get the singleton instance of the repository.
-     * @param sqlConfig - The SQL configuration object (only used for initialization).
+     * @param poolConfig - The PostgreSQL pool configuration object (only used for initialization).
      * @returns The singleton instance of the repository.
      */
-    static getInstance(sqlConfig) {
+    static getInstance(poolConfig) {
         if (!HBDRepo.instance) {
-            HBDRepo.instance = new HBDRepo(sqlConfig);
+            HBDRepo.instance = new HBDRepo(poolConfig);
         }
         return HBDRepo.instance;
     }
@@ -45,14 +42,8 @@ class HBDRepo {
             await this.connect();
         }
         try {
-            const request = this.pool.request(); // Use non-null assertion since `this.pool` is ensured to exist.
-            if (params) {
-                params.forEach((param, index) => {
-                    request.input(`param${index + 1}`, param);
-                });
-            }
-            const result = await request.query(queryString);
-            return result.recordset;
+            const result = await this.pool.query(queryString, params);
+            return result.rows;
         }
         catch (error) {
             console.error('Query execution failed:', error);
@@ -66,8 +57,7 @@ class HBDRepo {
     async connect() {
         if (!this.pool) {
             try {
-                const connectionPool = new mssql_1.default.ConnectionPool(this.sqlConfig);
-                this.pool = await connectionPool.connect();
+                this.pool = new pg_1.Pool(this.poolConfig);
                 console.log('Database connected');
             }
             catch (err) {
@@ -78,42 +68,31 @@ class HBDRepo {
         return this.pool;
     }
     /**
-     * Get the database connection pool.
-     * @returns The connection pool.
-     */
-    async getConnection() {
-        if (!this.pool) {
-            await this.connect();
-        }
-        return this.pool;
-    }
-    /**
      * Retrieves all HBD savings deposit transactions for a specific user.
      * @param username - The username of the account.
      * @returns A Promise resolving to an array of deposit transactions.
      */
     async deposits(username) {
         const queryString = `
-      SELECT tx_id, [type], [from], [to], [amount], [timestamp]
-      FROM TxTransfers
-      WHERE ([from] = @param1 OR [to] = @param1) 
-        AND [type] = 'transfer_to_savings'
-        AND [amount_symbol] = 'HBD'
-      ORDER BY [timestamp] ASC;
+          SELECT *, hafsql.get_timestamp(id) AS timestamp
+        FROM hafsql.operation_transfer_to_savings_table
+        WHERE (from_account = $1 or  to_account = $1 ) AND symbol = 'HBD' 
+         ORDER BY timestamp ASC;
     `;
         return await this.query(queryString, [username]);
     }
     /**
-    * Retrieves all HBD savings withdrawal transactions for a specific user.
-    * @param username - The username of the account.
-    * @returns A Promise resolving to an array of withdrawal transactions.
-    */
-    async withrawals(username) {
+     * Retrieves all HBD savings withdrawal transactions for a specific user.
+     * @param username - The username of the account.
+     * @returns A Promise resolving to an array of withdrawal transactions.
+     */
+    async withdrawals(username) {
         const queryString = `
-      SELECT * FROM VOFillTransferFromSavings 
-      where ([from]=@param1 or [to]=@param1)
-        AND [amount_symbol] = 'HBD'
-	    ORDER BY [timestamp] ASC;
+         SELECT * , hafsql.get_timestamp(id) AS timestamp
+          FROM hafsql.operation_fill_transfer_from_savings_table
+          WHERE from_account = 'krios003'
+          AND symbol = 'HBD' ORDER BY timestamp ASC;
+
     `;
         return await this.query(queryString, [username]);
     }
@@ -124,11 +103,9 @@ class HBDRepo {
      */
     async totalDeposit(username) {
         const queryString = `
-      SELECT SUM([amount]) AS total_amount
-      FROM TxTransfers
-      WHERE ([from] = @param1 OR [to] = @param1)
-        AND [type] = 'transfer_to_savings'
-        AND [amount_symbol] = 'HBD';
+      SELECT SUM(amount) as total_amount
+      FROM hafsql.operation_transfer_to_savings_table
+      WHERE (from_account = $1 or  to_account = $1 ) AND symbol = 'HBD' 
     `;
         const result = await this.query(queryString, [
             username,
@@ -136,16 +113,16 @@ class HBDRepo {
         return result[0]?.total_amount || 0;
     }
     /**
-   * Calculates the total amount withdrawn from HBD savings for a specific user.
-   * @param username - The username of the account.
-   * @returns A Promise resolving to the total withdrawn amount.
-   */
+     * Calculates the total amount withdrawn from HBD savings for a specific user.
+     * @param username - The username of the account.
+     * @returns A Promise resolving to the total withdrawn amount.
+     */
     async totalWithdrawal(username) {
         const queryString = `
-      SELECT SUM([amount]) AS total_amount
-      FROM VOFillTransferFromSavings 
-      where ([from] = @param1 or  [to]=@param1)
-        AND [amount_symbol] = 'HBD';
+     SELECT SUM(amount) AS total_amount
+      FROM hafsql.operation_fill_transfer_from_savings_table
+      WHERE from_account = $1
+        AND symbol= 'HBD'
     `;
         const result = await this.query(queryString, [
             username,
@@ -159,9 +136,9 @@ class HBDRepo {
      */
     async totalInterest(username) {
         const queryString = `
-      SELECT SUM([interest]) AS total_interest
-      FROM VOInterests
-      WHERE [owner] = @param1;
+       SELECT SUM(interest) AS total_interest
+        FROM hafsql.operation_interest_table
+        WHERE owner = $1;
     `;
         const result = await this.query(queryString, [
             username,
@@ -174,8 +151,10 @@ class HBDRepo {
      */
     async interestRate() {
         const queryString = `
-      SELECT hbd_interest_rate / 100 AS hbd_interest
-      FROM DynamicGlobalProperties;
+      SELECT  ROUND((CAST(hbd_interest_rate AS numeric) / 100),2) AS hbd_interest 
+      FROM hafsql.dynamic_global_properties
+      ORDER BY timestamp DESC
+      LIMIT 1;
     `;
         const result = await this.query(queryString);
         return result[0]?.hbd_interest || 0;
@@ -187,17 +166,43 @@ class HBDRepo {
      */
     async savingsDetails(username) {
         const queryString = `
-      SELECT 
-        hbd_balance,
-        savings_hbd_balance,
-        savings_hbd_last_interest_payment,
-        DATEDIFF(day, savings_hbd_last_interest_payment, GETDATE()) AS last_payment_days,
-        ((savings_hbd_balance * 
-          (SELECT CAST(hbd_interest_rate AS FLOAT) / 100.0 FROM DynamicGlobalProperties) 
-        / 12.0) / 30.0) * 
-        DATEDIFF(day, savings_hbd_last_interest_payment, GETDATE()) / 100 AS estimated_interest
-      FROM Accounts
-      WHERE name = @param1;
+            WITH 
+            last_payment AS (
+                SELECT hafsql.get_timestamp(id) AS last_payment_timestamp
+                FROM hafsql.operation_interest_table 
+                WHERE owner = 'krios003' 
+                ORDER BY last_payment_timestamp DESC 
+                LIMIT 1
+            ),
+            interest_rate AS (
+                SELECT ROUND(CAST(hbd_interest_rate AS numeric) / 100, 2) AS hbd_interest
+                FROM hafsql.dynamic_global_properties
+                ORDER BY timestamp DESC 
+                LIMIT 1
+            )
+
+            SELECT 
+                hbd,
+                hbd_savings,
+                -- Calculate the number of days since the last payment date
+                EXTRACT(DAY FROM (NOW() - (SELECT last_payment_timestamp FROM last_payment))) AS last_payment_days,
+
+                -- Calculating the estimated interest
+                ROUND(((hbd_savings * 
+                        (SELECT hbd_interest FROM interest_rate) 
+                        / 12.0) / 30.0) * 
+                      EXTRACT(DAY FROM (NOW() - (SELECT last_payment_timestamp FROM last_payment))) 
+                      / 100, 2) AS estimated_interest
+            FROM hafsql.balances
+            WHERE account_name = $1;
+    `;
+        const result = await this.query(queryString, [username]);
+        return result[0] || {};
+    }
+    async interestPayments(username) {
+        const queryString = `
+      SELECT *, hafsql.get_timestamp(id) AS timestamp FROM hafsql.operation_interest_table
+      where owner =  $1;
     `;
         const result = await this.query(queryString, [username]);
         return result[0] || {};

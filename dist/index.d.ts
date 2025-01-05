@@ -1,4 +1,4 @@
-import { ConnectionPool, config as SqlConfig } from 'mssql';
+import { PoolConfig } from 'pg';
 /**
  * HBDRepo is a singleton class responsible for interacting with the database
  * to manage HBD savings-related queries and operations.
@@ -6,18 +6,18 @@ import { ConnectionPool, config as SqlConfig } from 'mssql';
 export declare class HBDRepo {
     private static instance;
     private pool;
-    private sqlConfig;
+    private poolConfig;
     /**
      * Private constructor to ensure only one instance of the repository is created.
-     * @param sqlConfig - The SQL configuration object.
+     * @param poolConfig - The PostgreSQL pool configuration object.
      */
     private constructor();
     /**
      * Get the singleton instance of the repository.
-     * @param sqlConfig - The SQL configuration object (only used for initialization).
+     * @param poolConfig - The PostgreSQL pool configuration object (only used for initialization).
      * @returns The singleton instance of the repository.
      */
-    static getInstance(sqlConfig: SqlConfig): HBDRepo;
+    static getInstance(poolConfig: PoolConfig): HBDRepo;
     /**
      * Executes a query against the database.
      * @param queryString - The SQL query string.
@@ -31,22 +31,17 @@ export declare class HBDRepo {
      */
     private connect;
     /**
-     * Get the database connection pool.
-     * @returns The connection pool.
-     */
-    getConnection(): Promise<ConnectionPool>;
-    /**
      * Retrieves all HBD savings deposit transactions for a specific user.
      * @param username - The username of the account.
      * @returns A Promise resolving to an array of deposit transactions.
      */
     deposits(username: string): Promise<any[]>;
     /**
-    * Retrieves all HBD savings withdrawal transactions for a specific user.
-    * @param username - The username of the account.
-    * @returns A Promise resolving to an array of withdrawal transactions.
-    */
-    withrawals(username: string): Promise<any[]>;
+     * Retrieves all HBD savings withdrawal transactions for a specific user.
+     * @param username - The username of the account.
+     * @returns A Promise resolving to an array of withdrawal transactions.
+     */
+    withdrawals(username: string): Promise<any[]>;
     /**
      * Calculates the total amount deposited to HBD savings for a specific user.
      * @param username - The username of the account.
@@ -54,10 +49,10 @@ export declare class HBDRepo {
      */
     totalDeposit(username: string): Promise<number>;
     /**
-   * Calculates the total amount withdrawn from HBD savings for a specific user.
-   * @param username - The username of the account.
-   * @returns A Promise resolving to the total withdrawn amount.
-   */
+     * Calculates the total amount withdrawn from HBD savings for a specific user.
+     * @param username - The username of the account.
+     * @returns A Promise resolving to the total withdrawn amount.
+     */
     totalWithdrawal(username: string): Promise<number>;
     /**
      * Calculates the total interest accrued for a user's HBD savings.
@@ -76,4 +71,5 @@ export declare class HBDRepo {
      * @returns A Promise resolving to an object containing savings details.
      */
     savingsDetails(username: string): Promise<any>;
+    interestPayments(username: string): Promise<any>;
 }
