@@ -6,3 +6,7 @@
 node_modules/*
 .codegpt
 .*pub
+
+git filter-branch --force --index-filter \
+  'git rm -r --cached --ignore-unmatch dist' \
+  --prune-empty --tag-name-filter cat -- --all
