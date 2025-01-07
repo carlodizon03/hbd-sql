@@ -1,8 +1,6 @@
 .env
-
-
-./node_modules/*
-./dist/*
+dist/*
+dist
 node_modules/*
 .codegpt
 .*pub
