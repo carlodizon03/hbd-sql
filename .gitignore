@@ -2,4 +2,15 @@
 
 
 ./node_modules/
+<<<<<<< HEAD
 node_modules/*
+=======
+./dist/
+node_modules/*
+.codegpt
+.*pub
+
+git filter-branch --force --index-filter \
+  'git rm -r --cached --ignore-unmatch dist' \
+  --prune-empty --tag-name-filter cat -- --all
+>>>>>>> 66fb39699e3a0d1d1bae8c19aebaaa9772d74b0e
