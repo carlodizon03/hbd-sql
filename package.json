@@ -1,6 +1,6 @@
 {
   "name": "hbd-sql",
-  "version": "1.0.0",  
+  "version": "1.0.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "author": "kios003",
@@ -16,5 +16,8 @@
     "mssql": "^11.0.1",
     "pg": "^8.13.1",
     "typescript": "^5.7.2"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.10"
   }
 }
