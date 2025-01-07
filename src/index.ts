@@ -200,7 +200,7 @@ export class HBDRepo {
                 hbd,
                 hbd_savings,
                 -- Calculate the number of days since the last payment date
-                EXTRACT(DAY FROM (NOW() - (SELECT last_payment_timestamp FROM last_payment))) AS last_payment_days,
+                (SELECT last_payment_timestamp FROM last_payment) last_payment_date,
 
                 -- Calculating the estimated interest
                 ROUND(((hbd_savings * 
