@@ -5,8 +5,10 @@
   "types": "dist/index.d.ts",
   "author": "kios003",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "tsc && node dist/index.js"
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "start": "tsc && node dist/index.js",
+    "build": "tsc"
   },
   "keywords": [],
   "license": "ISC",
@@ -16,6 +18,9 @@
     "typescript": "^5.7.2"
   },
   "devDependencies": {
-    "@types/pg": "^8.11.10"
+    "@types/pg": "^8.11.10",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.12",
+    "ts-jest": "^29.1.2"
   }
 }
