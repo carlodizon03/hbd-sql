@@ -1,11 +1,23 @@
-import { Pool, PoolConfig, QueryResult } from 'pg';
+import { Pool, PoolConfig, QueryResult } from "pg";
+import {
+  DepositTransaction,
+  WithdrawalTransaction,
+  TotalAmount,
+  TotalInterest,
+  InterestRate,
+  SavingsDetails,
+  InterestPayment,
+} from "./interfaces";
+
+// Re-export interfaces for easier importing
+export * from "./interfaces";
 
 /**
- * HBDRepo is a singleton class responsible for interacting with the database
+ * HBDSQL is a singleton class responsible for interacting with the database
  * to manage HBD savings-related queries and operations.
  */
-export class HBDRepo {
-  private static instance: HBDRepo | null = null;
+export class HBDSQL {
+  private static instance: HBDSQL | null = null;
   private pool: Pool | null = null;
   private poolConfig: PoolConfig;
 
@@ -16,7 +28,7 @@ export class HBDRepo {
   private constructor(poolConfig: PoolConfig) {
     if (!poolConfig) {
       throw new Error(
-        'PostgreSQL configuration is required to initialize Database.'
+        "PostgreSQL configuration is required to initialize Database."
       );
     }
     this.poolConfig = poolConfig;
@@ -26,11 +38,11 @@ export class HBDRepo {
    * @param poolConfig - The PostgreSQL pool configuration object (only used for initialization).
    * @returns The singleton instance of the repository.
    */
-  public static getInstance(poolConfig: PoolConfig): HBDRepo {
-    if (!HBDRepo.instance) {
-      HBDRepo.instance = new HBDRepo(poolConfig);
+  public static getInstance(poolConfig: PoolConfig): HBDSQL {
+    if (!HBDSQL.instance) {
+      HBDSQL.instance = new HBDSQL(poolConfig);
     }
-    return HBDRepo.instance;
+    return HBDSQL.instance;
   }
 
   /**
@@ -53,11 +65,10 @@ export class HBDRepo {
       );
       return result.rows;
     } catch (error) {
-      console.error('Query execution failed:', error);
-      throw new Error('Failed to execute query.');
+      console.error("Query execution failed:", error);
+      throw new Error("Failed to execute query.");
     }
   }
- 
 
   /**
    * Connect to the database.
@@ -67,9 +78,9 @@ export class HBDRepo {
     if (!this.pool) {
       try {
         this.pool = new Pool(this.poolConfig);
-        console.log('Database connected');
+        console.log("Database connected");
       } catch (err) {
-        console.error('Database connection error:', err);
+        console.error("Database connection error:", err);
         throw err;
       }
     }
@@ -81,7 +92,7 @@ export class HBDRepo {
    * @param username - The username of the account.
    * @returns A Promise resolving to an array of deposit transactions.
    */
-  async deposits(username: string): Promise<any[]> {
+  async deposits(username: string): Promise<DepositTransaction[]> {
     const queryString = `
           SELECT *, hafsql.get_timestamp(id) AS timestamp
         FROM hafsql.operation_transfer_to_savings_table
@@ -96,7 +107,7 @@ export class HBDRepo {
    * @param username - The username of the account.
    * @returns A Promise resolving to an array of withdrawal transactions.
    */
-  async withdrawals(username: string): Promise<any[]> {
+  async withdrawals(username: string): Promise<WithdrawalTransaction[]> {
     const queryString = `
          SELECT * , hafsql.get_timestamp(id) AS timestamp
           FROM hafsql.operation_fill_transfer_from_savings_table
@@ -118,10 +129,8 @@ export class HBDRepo {
       FROM hafsql.operation_transfer_to_savings_table
       WHERE (from_account = $1 or  to_account = $1 ) AND symbol = 'HBD' 
     `;
-    const result = await this.query<{ total_amount: number }>(queryString, [
-      username,
-    ]);
-    return result[0]?.total_amount || 0;
+    const result = await this.query<TotalAmount>(queryString, [username]);
+    return Number(result[0]?.total_amount) || 0;
   }
 
   /**
@@ -136,10 +145,8 @@ export class HBDRepo {
       WHERE from_account = $1
         AND symbol= 'HBD'
     `;
-    const result = await this.query<{ total_amount: number }>(queryString, [
-      username,
-    ]);
-    return result[0]?.total_amount || 0;
+    const result = await this.query<TotalAmount>(queryString, [username]);
+    return Number(result[0]?.total_amount) || 0;
   }
 
   /**
@@ -153,10 +160,8 @@ export class HBDRepo {
         FROM hafsql.operation_interest_table
         WHERE owner = $1;
     `;
-    const result = await this.query<{ total_interest: number }>(queryString, [
-      username,
-    ]);
-    return result[0]?.total_interest || 0;
+    const result = await this.query<TotalInterest>(queryString, [username]);
+    return Number(result[0]?.total_interest) || 0;
   }
 
   /**
@@ -170,8 +175,8 @@ export class HBDRepo {
       ORDER BY timestamp DESC
       LIMIT 1;
     `;
-    const result = await this.query<{ hbd_interest: number }>(queryString);
-    return result[0]?.hbd_interest || 0;
+    const result = await this.query<InterestRate>(queryString);
+    return Number(result[0]?.hbd_interest) || 0;
   }
 
   /**
@@ -179,7 +184,7 @@ export class HBDRepo {
    * @param username - The username of the account.
    * @returns A Promise resolving to an object containing savings details.
    */
-  async savingsDetails(username: string): Promise<any> {
+  async savingsDetails(username: string): Promise<SavingsDetails> {
     const queryString = `
             WITH 
             last_payment AS (
@@ -211,11 +216,11 @@ export class HBDRepo {
             FROM hafsql.balances
             WHERE account_name = $1;
     `;
-    const result = await this.query(queryString, [username]);
-    return result[0] || {};
+    const result = await this.query<SavingsDetails>(queryString, [username]);
+    return result[0] || ({} as SavingsDetails);
   }
 
-  async interestPayments(username: string): Promise<any> {
+  async interestPayments(username: string): Promise<InterestPayment[]> {
     const queryString = `
       SELECT *, hafsql.get_timestamp(id) AS timestamp FROM hafsql.operation_interest_table
       where owner = $1;
