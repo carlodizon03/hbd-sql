@@ -1,4 +1,5 @@
-import { Pool, PoolConfig, QueryResult } from "pg";
+import pkg, { Pool as PoolType, PoolConfig, QueryResult } from "pg";
+const { Pool } = pkg;
 import {
   DepositTransaction,
   WithdrawalTransaction,
@@ -18,7 +19,7 @@ export * from "./interfaces";
  */
 export class HBDSQL {
   private static instance: HBDSQL | null = null;
-  private pool: Pool | null = null;
+  private pool: PoolType | null = null;
   private poolConfig: PoolConfig;
 
   /**
@@ -94,10 +95,18 @@ export class HBDSQL {
    */
   async deposits(username: string): Promise<DepositTransaction[]> {
     const queryString = `
-          SELECT *, hafsql.get_timestamp(id) AS timestamp
+          SELECT 
+            id::text,
+            hafsql.get_trx_id(id) AS transaction_id,
+            from_account,
+            to_account,
+            amount::numeric as amount,
+            symbol,
+            COALESCE(memo, '') as memo,
+            hafsql.get_timestamp(id) AS timestamp
         FROM hafsql.operation_transfer_to_savings_table
-        WHERE (from_account = $1 or  to_account = $1 ) AND symbol = 'HBD' 
-         ORDER BY timestamp ASC;
+        WHERE (from_account = $1 OR to_account = $1) AND symbol = 'HBD' 
+        ORDER BY hafsql.get_timestamp(id) ASC;
     `;
     return await this.query(queryString, [username]);
   }
@@ -108,12 +117,24 @@ export class HBDSQL {
    * @returns A Promise resolving to an array of withdrawal transactions.
    */
   async withdrawals(username: string): Promise<WithdrawalTransaction[]> {
+    // Only include withdrawal requests that have been filled/completed
+    // by joining with operation_fill_transfer_from_savings_table
     const queryString = `
-         SELECT * , hafsql.get_timestamp(id) AS timestamp
-          FROM hafsql.operation_fill_transfer_from_savings_table
-          WHERE from_account = $1
-          AND symbol = 'HBD' ORDER BY timestamp ASC;
-
+         SELECT DISTINCT
+            req.id::text,
+            hafsql.get_trx_id(req.id) AS transaction_id,
+            req.from_account,
+            req.to_account,
+            req.request_id,
+            COALESCE(req.memo, '') as memo,
+            req.amount::numeric as amount,
+            req.symbol,
+            hafsql.get_timestamp(req.id) AS timestamp
+          FROM hafsql.operation_transfer_from_savings_table req
+          INNER JOIN hafsql.operation_fill_transfer_from_savings_table fill 
+            ON req.request_id = fill.request_id
+          WHERE req.from_account = $1 AND req.symbol = 'HBD' 
+          ORDER BY hafsql.get_timestamp(req.id) ASC;
     `;
     return await this.query(queryString, [username]);
   }
@@ -125,7 +146,7 @@ export class HBDSQL {
    */
   async totalDeposit(username: string): Promise<number> {
     const queryString = `
-      SELECT SUM(amount) as total_amount
+      SELECT COALESCE(SUM(amount), 0)::numeric as total_amount
       FROM hafsql.operation_transfer_to_savings_table
       WHERE (from_account = $1 or  to_account = $1 ) AND symbol = 'HBD' 
     `;
@@ -140,7 +161,7 @@ export class HBDSQL {
    */
   async totalWithdrawal(username: string): Promise<number> {
     const queryString = `
-     SELECT SUM(amount) AS total_amount
+     SELECT COALESCE(SUM(amount), 0)::numeric AS total_amount
       FROM hafsql.operation_fill_transfer_from_savings_table
       WHERE from_account = $1
         AND symbol= 'HBD'
@@ -156,7 +177,7 @@ export class HBDSQL {
    */
   async totalInterest(username: string): Promise<number> {
     const queryString = `
-       SELECT SUM(interest) AS total_interest
+       SELECT COALESCE(SUM(interest), 0)::numeric AS total_interest
         FROM hafsql.operation_interest_table
         WHERE owner = $1;
     `;
@@ -170,7 +191,7 @@ export class HBDSQL {
    */
   async interestRate(): Promise<number> {
     const queryString = `
-      SELECT  ROUND((CAST(hbd_interest_rate AS numeric) / 100),2) AS hbd_interest 
+      SELECT ROUND((CAST(hbd_interest_rate AS numeric) / 100),2)::numeric AS hbd_interest 
       FROM hafsql.dynamic_global_properties
       ORDER BY timestamp DESC
       LIMIT 1;
@@ -202,8 +223,8 @@ export class HBDSQL {
             )
 
             SELECT 
-                hbd,
-                hbd_savings,
+                hbd::numeric,
+                hbd_savings::numeric,
                 -- Calculate the number of days since the last payment date
                 (SELECT last_payment_timestamp FROM last_payment) last_payment_date,
 
@@ -212,7 +233,7 @@ export class HBDSQL {
                         (SELECT hbd_interest FROM interest_rate) 
                         / 12.0) / 30.0) * 
                       EXTRACT(DAY FROM (NOW() - (SELECT last_payment_timestamp FROM last_payment))) 
-                      / 100, 2) AS estimated_interest
+                      / 100, 2)::numeric AS estimated_interest
             FROM hafsql.balances
             WHERE account_name = $1;
     `;
@@ -222,8 +243,9 @@ export class HBDSQL {
 
   async interestPayments(username: string): Promise<InterestPayment[]> {
     const queryString = `
-      SELECT *, hafsql.get_timestamp(id) AS timestamp FROM hafsql.operation_interest_table
-      where owner = $1;
+      SELECT id, hafsql.get_trx_id(id) AS transaction_id, owner, interest::numeric as interest, interest_symbol, is_saved_into_hbd_balance, hafsql.get_timestamp(id) AS timestamp 
+      FROM hafsql.operation_interest_table
+      WHERE owner = $1;
     `;
     return await this.query(queryString, [username]);
   }

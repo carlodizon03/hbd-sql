@@ -3,9 +3,10 @@
  */
 export interface DepositTransaction {
   id: string;
+  transaction_id: string;
   from_account: string;
   to_account: string;
-  amount: string;
+  amount: number;
   symbol: string;
   memo: string;
   timestamp: Date;
@@ -16,11 +17,12 @@ export interface DepositTransaction {
  */
 export interface WithdrawalTransaction {
   id: string;
+  transaction_id: string;
   from_account: string;
   to_account: string;
   request_id: string;
   memo: string;
-  amount: string;
+  amount: number;
   symbol: string;
   timestamp: Date;
 }
@@ -29,31 +31,31 @@ export interface WithdrawalTransaction {
  * Interface for total amount queries (deposits/withdrawals)
  */
 export interface TotalAmount {
-  total_amount: string;
+  total_amount: number;
 }
 
 /**
  * Interface for total interest accrued
  */
 export interface TotalInterest {
-  total_interest: string;
+  total_interest: number;
 }
 
 /**
  * Interface for current HBD interest rate
  */
 export interface InterestRate {
-  hbd_interest: string;
+  hbd_interest: number;
 }
 
 /**
  * Interface for user's HBD savings account details
  */
 export interface SavingsDetails {
-  hbd: string;
-  hbd_savings: string;
+  hbd: number;
+  hbd_savings: number;
   last_payment_date: Date | null;
-  estimated_interest: string;
+  estimated_interest: number;
 }
 
 /**
@@ -61,8 +63,9 @@ export interface SavingsDetails {
  */
 export interface InterestPayment {
   id: string;
+  transaction_id: string;
   owner: string;
-  interest: string;
+  interest: number;
   interest_symbol: string;
   is_saved_into_hbd_balance: boolean;
   timestamp: Date;
