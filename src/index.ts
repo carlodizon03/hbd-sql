@@ -243,7 +243,7 @@ export class HBDSQL {
 
   async interestPayments(username: string): Promise<InterestPayment[]> {
     const queryString = `
-      SELECT id, hafsql.get_trx_id(id) AS transaction_id, owner, interest::numeric as interest, interest_symbol, is_saved_into_hbd_balance, hafsql.get_timestamp(id) AS timestamp 
+      SELECT id, hafsql.get_trx_id(id) AS transaction_id, hafd.operation_id_to_block_num(id) as block_id,  owner, interest::numeric as interest, interest_symbol, is_saved_into_hbd_balance, hafsql.get_timestamp(id) AS timestamp 
       FROM hafsql.operation_interest_table
       WHERE owner = $1;
     `;
